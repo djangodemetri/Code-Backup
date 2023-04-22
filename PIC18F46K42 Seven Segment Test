@@ -1,0 +1,285 @@
+// Author: Django Demetri
+// Purpose: This code increments and decrements 0-F on a seven segment. It uses two switches to control the direction. When no switch is pressed
+// the current value is maintained. When both buttons are pressed the value is reset to zero (0x3F). The buttons needed to be configured
+// with a pull down resistor.
+// Dependencies: AssemblyConfig.inc (See repository) 
+// Compiler: MPLAB X IDE v6.05
+// OUTPUTS: Common cathode seven segment using PORTC
+// INPUTS: Two push buttons using PORTD
+// Versions:
+//  	V1.0: 3/20/23 Wrote basic logic
+//  	V1.2: 3/21/23 Created delay function and augmented logic
+//	V1.4: 3/27/23 Coded delay for a duration of 1.05s, fixed overshooting error
+// where the value would be inc/decremented once before switching counting direction    
+//-----------------------------
+
+
+;---------------------
+; Initialization
+;---------------------
+#include "AssemblyConfig.inc"
+#include <xc.inc>
+
+;---------------------
+; Program Inputs
+;---------------------
+Inner_loop  equ 3 // in decimal
+Outer_loop  equ 3
+Third_loop equ 3
+#define loopvar 2 //80
+ 
+;---------------------
+; Program Constants
+;---------------------
+REG10   equ     10h   // in HEX
+REG11   equ     11h
+REG12   equ	9h
+
+;---------------------
+; Definitions
+;---------------------
+#define SWITCHONE PORTD,0  
+#define SWITCHTWO PORTD,1
+#define fiftest 0x71
+#define zerotest 0x3f
+   
+;---------------------
+; Main Program
+;---------------------
+    PSECT absdata,abs,ovrld        ; Do not change
+    
+    ORG          0                ;Reset vector
+    GOTO        start1
+
+    ORG          0020H           ; Begin assembly at 0020H
+ 
+start1: 
+    clrf WREG
+    clrf PORTA
+    clrf PORTD
+    BANKSEL	PORTD ;
+    CLRF	PORTD ;Init PORTA
+    BANKSEL	LATD ;Data Latch
+    CLRF	LATD ;
+    BANKSEL	ANSELD ;
+    CLRF	ANSELD ;digital I/O
+    BANKSEL	TRISD ;
+    MOVLW	0xff ;Set RD[7:1] as inputs
+    MOVWF	TRISD ;and set RD0 as ouput
+
+    banksel PORTA
+    clrf PORTA
+    banksel LATA
+    clrf LATA
+    banksel ANSELA
+    clrf ANSELA
+    banksel TRISA
+    movlw 0x00
+    movwf TRISA
+
+    MOVLW       Inner_loop
+    MOVWF       REG10
+    MOVLW       Outer_loop
+    MOVWF       REG11
+
+movlw 0x3f;0
+movwf 0x0
+movlw 0x06;1
+movwf 0x1
+movlw 0x5b;2
+movwf 0x2
+movlw 0x4f;3
+movwf 0x3
+movlw 0x66;4
+movwf 0x4
+movlw 0x6d;5
+movwf 0x5
+movlw 0x7d;6
+movwf 0x6
+movlw 0x07;7
+movwf 0x7
+movlw 0x7f;8
+movwf 0x8
+movlw 0x6f;9
+movwf 0x9
+movlw 0x77;a
+movwf 0xa
+movlw 0x7c;b
+movwf 0xb
+movlw 0x39;c
+movwf 0xc
+movlw 0x5e;d
+movwf 0xd
+movlw 0x79;e
+movwf 0xe
+movlw 0x71;f
+movwf 0xf
+    
+movlw 0x3f;0
+movwf 0xe0
+movlw 0x06;1
+movwf 0xe1
+movlw 0x5b;2
+movwf 0xe2
+movlw 0x4f;3
+movwf 0xe3
+movlw 0x66;4
+movwf 0xe4
+movlw 0x6d;5
+movwf 0xe5
+movlw 0x7d;6
+movwf 0xe6
+movlw 0x07;7
+movwf 0xe7
+movlw 0x7f;8
+movwf 0xe8
+movlw 0x6f;9
+movwf 0xe9
+movlw 0x77;a
+movwf 0xea
+movlw 0x7c;b
+movwf 0xeb
+movlw 0x39;c
+movwf 0xec
+movlw 0x5e;d
+movwf 0xed
+movlw 0x79;e
+movwf 0xee
+movlw 0x71;f
+movwf 0xef
+
+lfsr 0,0x0
+movlw 0x3f
+movff WREG,zerotest
+movlw 0xf
+movff WREG,fiftest   
+onoff:
+    btfss SWITCHONE ;if 01, if true skip
+	bra isswitchoneon
+	btfss SWITCHTWO ;if 11, true skip
+	bra countup;result is 01
+	bra totreset;result is 11
+	
+isswitchoneon:
+	btfss SWITCHTWO;if 10, true skip
+	bra onoff
+	bra countdown
+	
+
+countup:
+    clrf WREG
+    movff PORTA,WREG ;wreg
+    cpfseq fiftest;if fsr0L = f, then skip
+    bra upcont
+    call resetto00
+upcont: 
+    btfss SWITCHONE ;if 01, if true skip
+    bra upcontalt
+    btfss SWITCHTWO ;if 11, true skip
+    bra delayup;result is 01
+    bra totreset;result is 11
+	
+upcontalt:
+	decf FSR0L,1
+	btfss SWITCHTWO;if 10, true skip
+	bra onoff
+	decf FSR0L,1
+	bra onoff
+   
+countdown:
+    clrf WREG
+    movff PORTA,WREG ;wreg
+    cpfseq zerotest;if fsr0L = 0, then skip
+    bra downcont
+    call resetto0f
+downcont: 
+    btfss SWITCHONE ;if 01, if true skip
+    bra downcontalt
+    btfss SWITCHTWO ;if 11, true skip
+    bra delaydown;result is 01
+    bra totreset;result is 11
+	
+downcontalt:
+	incf FSR0L,1
+	btfss SWITCHTWO;if 10, true skip
+	bra onoff
+	incf FSR0L,1
+	bra onoff
+
+resetto0f:
+    lfsr 0,0x0f
+    movff INDF0,PORTA
+    return
+
+resetto00:
+    lfsr 0,0x00
+    movff INDF0,PORTA
+    return
+
+delayup:
+	movff POSTINC0, PORTA
+	movlw loopvar
+	movwf 0x10
+firstinnerup:
+	decfsz 0x10
+	call secondloopup
+	tstfsz 0x10
+	bra firstinnerup
+	bra countup
+
+secondloopup:
+	movlw loopvar
+	movwf 0x11
+secondinnerup:
+	decfsz 0x11
+	call thirdloopup
+	tstfsz 0x11
+	bra secondinnerup
+	return
+
+thirdloopup:
+	movlw loopvar
+	movwf 0x20
+thirdinnerup:
+	decfsz 0x20
+	bra thirdinnerup
+	return
+
+    
+ delaydown:
+	movff POSTDEC0,PORTA 
+	movlw loopvar
+	movwf 0x10
+firstinnerdown:
+	decfsz 0x10
+	call secondloopdown
+	tstfsz 0x10
+	bra firstinnerdown
+	bra countdown
+
+secondloopdown:
+	movlw loopvar
+	movwf 0x11
+secondinnerdown:
+	decfsz 0x11
+	call thirdloopdown
+	tstfsz 0x11
+	bra secondinnerdown
+	return
+
+thirdloopdown:
+	movlw loopvar
+	movwf 0x20
+thirdinnerdown:
+	decfsz 0x20
+	bra thirdinnerdown
+	return
+
+totreset:
+    lfsr 0,0x00
+    movff INDF0,PORTA
+    bra onoff
+    
+
+    
+  

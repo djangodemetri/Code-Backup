@@ -1,0 +1,1348 @@
+class NewsArticle:
+    
+    def __init__(self, name, number):
+        self.pubName = name
+        self.numWords = number
+        self.hashtags = []
+        self.valid = True
+        
+    def is_fake(self):
+        if self.valid == True:
+            return True
+        else:
+            return False
+            
+    def get_words(self):
+        return self.numWords
+        
+    def get_publisher(self):
+        return self.pubName
+        
+    def add_tag(self, tag):
+        self.hashtags.append(tag)
+        
+    def update_fake(self, fakeWord):
+        if fakeWord in self.hashtags:
+            self.valid = False
+            
+    def __lt__(self, other):
+        if self.numWords < other.numWords:
+            return True
+        else:
+            return False
+            
+    def __str__(self):
+        return (self.pubName + str(len(self.hashtags)) + str(self.numWords) + str(self.valid))
+        
+def CreateArticle():
+    words = int(input())
+    if words == 0:
+        return None
+    pub = input()
+    numTags = int(input())
+    hashOne = input()
+    hashTwo = input()
+    paper = NewsArticle(pub, words)
+    paper.add_tag(hashOne)
+    paper.add_tag(hashTwo)
+    
+    return paper
+    
+def NewsToday():
+    objList = []
+    initial = CreateArticle()
+    while initial != None:
+        objList.append(CreateArticle())
+        initial = CreateArticle()
+    return objList
+        
+def main():
+    listArticle = NewsToday()
+    fakeHashtag = input()
+    for i in range(len(listArticle)):
+        listArticle[i].update_fake("poop")
+    
+    for b in range(len(listArticle)):
+        print(listArticle[b])
+        smallest = listArticle[0]
+        if listArticle[b] < smallest:
+            smallest = listArticle[b]
+    print("smallest is", smallest)
+        
+main()
+        
+        
+        
+        
+        
+        
+        
+
+
+
+"""
+Program: CS115 Project 3
+author: Django Demetri
+Description: This program allows the user to perform manipulations on images. First, the user can cycle through all the
+images in a directory. Secondly, the user can convert an image to grayscale. Thirdly, the user can average all
+the images in the directory to create a better quality image.
+"""
+import sys
+import time
+from helper_graphics import *
+from os.path import join
+
+def draw_menu(win, w, h):
+    '''Creates and draws a menu of buttons.
+    
+    Args:
+        win (GraphWin): The window where buttons will be drawn.
+        w (int): Width of the graphical window
+        h (int): Height of the graphical window
+    
+    Returns:
+        list: a list L, where L[i] is the i-th button (Rectangle object).
+
+    '''
+    # List to hold the button Rectangle objects
+    L = []
+
+    # Draws the buttons on the window, staring at half the height of the window
+    draw_button(win, Point(w / 2, 4*h / 8), "a. Cycle Through Images")
+    draw_button(win, Point(w / 2,  (4*h / 8) + 40), "b. Convert to GrayScale")
+    draw_button(win, Point(w / 2, (4*h / 8) + 80), "c. Average the Images")
+    draw_button(win, Point(w / 2, (4*h / 8) + 120), "d. Quit")
+
+    # First button
+    L.append(Rectangle(Point(w / 2 - len("a. Cycle Through Images") * 5,
+                           (4*h / 8) - constY),
+                       Point(w / 2 + len("a. Cycle Through Images") * 5,
+                             (4 *h / 8) + constY)))
+
+    # Second button
+    L.append(Rectangle(Point(w / 2 - len("b. Convert to GrayScale") * 5,
+                           (4 * h / 8 + 40) - constY),
+                     Point(w / 2 + len("b. Convert to GrayScale") * 5,
+                           (4 * h / 8 + 40) + constY)))
+
+    # Third button
+    L.append(Rectangle(Point(w / 2 - len("c. Average the Images") * 5,
+                           (4 * h / 8 + 80) - constY),
+                     Point(w / 2 + len("c. Average the Images") * 5,
+                           (4 * h / 8 + 80) + constY)))
+
+    # Fourth button
+    L.append(Rectangle(Point(w / 2 - len("d. Quit") * 5,
+                           (4 * h / 8 + 120) - constY),
+                     Point(w / 2 + len("d. Quit") * 5,
+                           (4 * h / 8 + 120) + constY)))
+
+    return L
+
+def wait_for_menu(win, buttons):
+    '''Waits for a click, detects the clicked button and returns its index.
+    
+    Args:
+        win (GraphWin): The window where the user would click.
+        buttons (list): A list, where buttons[i] is the i-th button (Rectangle object).
+    
+    Returns:
+        int: a value between 0 and len(buttons)-1, indicating the 
+             index of the button that was clicked.
+    '''
+
+    while True:
+        # Grabs the coordinates of the user's click
+        click = win.getMouse()
+        # First button
+        if buttons[0].getP1().getX() < click.getX() < buttons[0].getP2().getX() and \
+            buttons[0].getP1().getY() < click.getY() < buttons[0].getP2().getY():
+            return 0
+
+        # Second button
+        if buttons[1].getP1().getX() < click.getX() < buttons[1].getP2().getX() and \
+            buttons[1].getP1().getY() < click.getY() < buttons[1].getP2().getY():
+            return 1
+
+        # Third button
+        if buttons[2].getP1().getX() < click.getX() < buttons[2].getP2().getX() and \
+            buttons[2].getP1().getY() < click.getY() < buttons[2].getP2().getY():
+            return 2
+
+        # Fourth button
+        if buttons[3].getP1().getX() < click.getX() < buttons[3].getP2().getX() and \
+            buttons[3].getP1().getY() < click.getY() < buttons[3].getP2().getY():
+            return 3
+
+def cycleThrough(win, dirname, fileList):
+    '''Cycles through and displays a series of images
+
+    Args:
+        win (GraphWin): The window where the user would click.
+        dirname (string): The name of the directory where the images are
+        fileList (list): List of the images
+
+    Returns:
+        Nothing, just displays the images on the window
+
+    '''
+
+    try:
+        imgObjList = []
+        for h in range(len(fileList)):
+            # Creates a list of Image objects for the images
+            imgObjList.append(Image(Point(win.getWidth() // 2, win.getHeight() // 2), join(dirname, fileList[h])))
+            # Displays the images on the window
+            imgObjList[h].draw(win)
+            # Changes the title to the file name
+            win.setTitle(fileList[h])
+            # Waits for the user to click before displaying the next image
+            wait_for_button(win, Rectangle(Point(0, 0), Point(win.getWidth(), win.getHeight())))
+        win.setTitle("Click to Continue...")
+
+    except GraphicsError:
+        print("Please close the window properly next time")
+
+def grayImage(win, dirname, filename):
+    ''' Converts colored images to grayscale
+
+    Args:
+        win (GraphWin): The window where the user would click.
+        dirname (string): The name of the directory where the images are
+        filename (string): Name of the image to be converted
+
+    Returns:
+        Nothing, just converts the image to grayscale
+
+    '''
+
+    try:
+        # Makes the user selected image into an Image object
+        userImage = Image(Point(win.getWidth() // 2, win.getHeight() // 2), join(dirname, filename))
+        for k in range(win.getWidth()):
+            for m in range(win.getHeight()):
+                # Finds RGB value for a pixel
+                colorValues = userImage.getPixel(k, m)
+                # Averages the RGB values and converts to int
+                pixelAverage = int(convertToGray(colorValues))
+                # Converts averaged values to the special string
+                pixelConvert = color_rgb(pixelAverage, pixelAverage, pixelAverage)
+                # Applies new color to each pixel on original colored image
+                userImage.setPixel(k, m, pixelConvert)
+        # Draws new grayscale image on the menu
+        userImage.draw(win)
+        win.setTitle("GrayScale! Click to continue..")
+        # Waits for the user to click before displaying the next image
+        wait_for_button(win, Rectangle(Point(0, 0), Point(win.getWidth(), win.getHeight())))
+        win.setTitle("Click to Continue...")
+
+    except GraphicsError:
+        print("Please close the window properly next time")
+
+def averageImages(win, dirname, fileList):
+    '''Averages the images to create a clearer image
+
+    Args:
+        win (GraphWin): The window where the user would click.
+        dirname (string): The name of the directory where the images are
+        fileList (list): List of the images
+
+    Returns:
+        Nothing, just averages the images
+
+    '''
+
+    try:
+        # List of Image objects
+        imgObjList = []
+        # List of accumulated RGB values
+        accumRGBList = []
+        finalImage = Image(Point(win.getWidth() // 2, win.getHeight() // 2), win.getWidth(), win.getHeight())
+        for u in range(len(fileList)):
+            # Turns all the photos into Image objects
+            imgObjList.append(Image(Point(win.getWidth() // 2, win.getHeight() // 2), join(dirname, fileList[u])))
+            for x in range(finalImage.getWidth()):
+                # Create an empty list, first dimension
+                accumRGBList.append([])
+                for t in range(finalImage.getHeight()):
+                    # Fill list with empty values structured like RGB values
+                    accumRGBList[x].append([0, 0, 0])
+                    # Obtain the RGB values of the passed photos
+                    tempRGB = imgObjList[u].getPixel(x, t)
+                    for o in range(3):
+                        # Add new RGB values and keep sum
+                        accumRGBList[x][t][o] = accumRGBList[x][t][o] + tempRGB[o]
+
+        for qq in range(finalImage.getWidth()):
+            for ww in range(finalImage.getHeight()):
+                for ee in range(3):
+                    # Take the average for each RGB value
+                    accumRGBList[qq][ww][ee] = accumRGBList[qq][ww][ee] // len(fileList)
+                # Set each pixel of the final image to the averaged RGB values
+                finalImage.setPixel(qq, ww, color_rgb(accumRGBList[qq][ww][0], accumRGBList[qq][ww][1], \
+                                                      accumRGBList[qq][ww][2]))
+        # Displays averaged image on the menu
+        finalImage.draw(win)
+        # Waits for the user to click before displaying the next image
+        wait_for_button(win, Rectangle(Point(0, 0), Point(win.getWidth(), win.getHeight())))
+        win.setTitle("Click to Continue...")
+
+    except GraphicsError:
+        print("Please close the window properly next time")
+
+def main():
+
+    dirname = input("Name of directory you want to open: ")
+
+    file_list = os.listdir(dirname)
+    print("List of images:", file_list)
+
+    # Get first noisy image
+    inputImageFilename = file_list[0]
+    fullname = join(dirname, inputImageFilename)
+    print('Full path of first file:', fullname)
+
+    #Create an Image object using fullname. Store it in variable img
+    img = Image(Point(0, 0), fullname)
+
+    #Get width and height of image
+    w = img.getWidth()
+    h = img.getHeight()
+
+    #Set anchor of image to its center point
+    img.setAnchor(Point(w // 2, h // 2))
+
+    try:
+        # Creates a GraphWin object in dimensions of w and h
+        win = GraphWin("Click to continue...", w, h)
+        # Displays an image on the menu
+        img.draw(win)
+        # Allows the user to click anywhere to continue
+        imageButton = Rectangle(Point(0, 0), Point(w, h))
+        # Waits for the user to click before displaying the next image
+        wait_for_button(win, imageButton)
+        # Calls the function draw_menu() to draw menu buttons
+        buttonList = draw_menu(win, w, h)
+        buttonChoice = -1
+
+        while buttonChoice != 3:
+            buttonChoice = wait_for_menu(win, buttonList)
+            if buttonChoice == 0:
+                cycleThrough(win, dirname, file_list)
+            elif buttonChoice == 1:
+                grayImage(win, dirname, file_list[0])
+            elif buttonChoice == 2:
+                averageImages(win, dirname, file_list)
+
+            # Undraw the previous image so the menu can display its original image
+            img.undraw()
+            img.draw(win)
+            buttonList = draw_menu(win, w, h)
+
+    except GraphicsError:
+        print("Please close the window properly next time")
+
+main()
+
+
+
+
+----------------------------------------------------------------------------------
+
+"""
+Program: CS115 Project 3
+Author: Django Demetri
+Description: TBD
+"""
+import sys
+import time
+from helper_graphics import *
+from os.path import join
+
+
+
+
+def draw_menu(win, w, h):
+    '''Creates and draws a menu of buttons.
+    
+    Args:
+        win (GraphWin): The window where buttons will be drawn.
+        w (int): Width of the graphical window
+        h (int): Height of the graphical window
+    
+    Returns:
+        list: a list L, where L[i] is the i-th button (Rectangle object).
+
+    '''
+    # Creates a list of dummy Rectangles objects
+    L = [Rectangle(Point(0, 0), Point(0, 0)), Rectangle(Point(0, 0), Point(0, 0)), Rectangle(Point(0, 0), Point(0, 0)), Rectangle(Point(0, 0), Point(0, 0))]
+
+    #Draws the buttons on the window, staring at half the height of the window and incrementing in eighths
+    draw_button(win, Point(w / 2, 5*h / 8), "a. Cycle Through Images")
+    draw_button(win, Point(w / 2, 6*h / 8), "b. Convert to GrayScale")
+    draw_button(win, Point(w / 2, 7*h / 8), "c. Average the Images")
+    draw_button(win, Point(w / 2, 8*h / 8), "d. Quit")
+
+    # First button
+    L[0] = Rectangle(Point(w / 2 - len("a. Cycle Through Images") * 5,
+                           (5*h / 8) - constY),
+                       Point(w / 2 + len("a. Cycle Through Images") * 5,
+                             (5*h / 8) + constY))
+
+    # Second button
+    L[1] = Rectangle(Point(w / 2 - len("b. Convert to GrayScale") * 5,
+                           (6 * h / 8) - constY),
+                     Point(w / 2 + len("b. Convert to GrayScale") * 5,
+                           (6 * h / 8) + constY))
+
+    # Third button
+    L[2] = Rectangle(Point(w / 2 - len("c. Average the Images") * 5,
+                           (7 * h / 8) - constY),
+                     Point(w / 2 + len("c. Average the Images") * 5,
+                           (7 * h / 8) + constY))
+
+    # Fourth button
+    L[3] = Rectangle(Point(w / 2 - len("d. Quit") * 5,
+                           (8 * h / 8) - constY),
+                     Point(w / 2 + len("d. Quit") * 5,
+                           (8 * h / 8) + constY))
+
+    return L
+
+
+
+def wait_for_menu(win, buttons):
+    '''Waits for a click, detects the clicked button and returns its index.
+    
+    Args:
+        win (GraphWin): The window where the user would click.
+        buttons (list): A list, where buttons[i] is the i-th button (Rectangle object).
+    
+    Returns:
+        int: a value between 0 and len(buttons)-1, indicating the 
+             index of the button that was clicked.
+    '''
+
+    while True:
+        click = win.getMouse()
+        # First button
+        if buttons[0].getP1().getX() < click.getX() < buttons[0].getP2().getX() and \
+            buttons[0].getP1().getY() < click.getY() < buttons[0].getP2().getY():
+            return 0
+
+        # Second button
+        if buttons[1].getP1().getX() < click.getX() < buttons[1].getP2().getX() and \
+            buttons[1].getP1().getY() < click.getY() < buttons[1].getP2().getY():
+            return 1
+
+        # Third button
+        if buttons[2].getP1().getX() < click.getX() < buttons[2].getP2().getX() and \
+            buttons[2].getP1().getY() < click.getY() < buttons[2].getP2().getY():
+            return 2
+
+        # Fourth button
+        if buttons[3].getP1().getX() < click.getX() < buttons[3].getP2().getX() and \
+            buttons[3].getP1().getY() < click.getY() < buttons[3].getP2().getY():
+            return 3
+
+def cycleThrough(win, dirname, fileList):
+    '''Cycles through and displays a series of images
+
+    Args:
+        win (GraphWin): The window where the user would click.
+        dirname (string): The name of the directory where the images are
+        fileList (list): List of the images
+
+    Returns:
+        Nothing, just displays the images on the window
+
+        '''
+
+    imgObjList = []
+    try:
+        for h in range(len(fileList)):
+            # Creates a list of image objects for the images
+            imgObjList.append(Image(Point(win.getWidth() // 2, win.getHeight() // 2), join("nebula_small", fileList[h])))
+            # Displays the images on the window
+            imgObjList[h].draw(win)
+            # Changes the title to the file name
+            win.setTitle(fileList[h])
+            # Waits for the user to click before displaying the next image
+            wait_for_button(win, Rectangle(Point(0, 0), Point(win.getWidth(), win.getHeight())))
+
+    except GraphicsError:
+        print("Please close the window properly next time")
+
+def main():
+
+    #dirname = input("Name of directory you want to open: ")
+    dirname = 'nebula_small'
+
+    file_list = os.listdir(dirname)
+    print("List of images:", file_list)
+
+    # Get first noisy image
+    inputImageFilename = file_list[0]
+    fullname = join(dirname, inputImageFilename)
+    print('Full path of first file:', fullname)
+
+    #Create an Image object using fullname. Store it in variable img
+    img = Image(Point(0, 0), fullname)
+
+    #Get width and height of image
+    w = img.getWidth()
+    h = img.getHeight()
+
+    #Set anchor of image to its center point
+    img.setAnchor(Point(w // 2, h // 2))
+
+    try:
+        win = GraphWin("Click to continue...", w, h)
+        img.draw(win)
+        imageButton = Rectangle(Point(0, 0), Point(w,h))
+        wait_for_button(win, imageButton)
+        buttonList = draw_menu(win, w, h)
+        buttonChoice = wait_for_menu(win, buttonList)
+
+        if buttonChoice == 0:
+            print("a. Cycle Through Images")
+            cycleThrough(win, fullname, file_list)
+        elif buttonChoice == 1:
+            print("b. Convert to GrayScale")
+        elif buttonChoice == 2:
+            print("c. Average the Images")
+        else:
+            print("d. Quit")
+
+    except GraphicsError:
+        print("Please close the window properly next time")
+
+main()
+
+
+--------------------------------------------------------------------------------------------
+
+"""
+Program: CS115 Project 2, Part B
+Author: Django Demetri
+Description: TBD
+"""
+
+from drift_graphics import *
+from collections import Counter
+
+def add_win(win):
+    '''Adds the simulate button and three entry boxes onto the graphical window
+
+        Args:
+            win (GraphWin): The Graphics Window.
+
+        Returns:
+            list: list containing the simulateButton object and and list of entryBox objects
+        '''
+
+    simButRec = Rectangle(Point(260, 465), Point(340, 495))
+    listLabel = ["Population Size", "Number of alleles", "Number of generations"]
+    simButCenter = Point(600 * .5, 600 * .8)
+    entryBox = draw_param_entries(win, listLabel)
+    simButton = draw_button(win, simButCenter, "Simulate!")
+    userList = [simButton, entryBox]
+    wait_for_button(win, simButRec)
+    return userList
+
+def get_simul_params(win, button_and_boxes):
+    '''Gets the value of simulation parameters from the graphical window.
+
+        Args:
+            win (GraphWin): The Graphics Window.
+            button_and_boxes (list): list containing the simulateButton and entryBoxes
+
+        Returns:
+            list: Value of simulation parameters such as population, number of alleles and number of generations in a list
+        '''
+    simBut = Rectangle(Point(260, 465), Point(340, 495))
+    population = int(button_and_boxes[1][0].getText())
+    alleles = int(button_and_boxes[1][1].getText())
+    generations = int(button_and_boxes[1][2].getText())
+    errorBox = draw_error_msg(win)
+    while population <= 0 or alleles <= 0 or alleles > 2 * population or generations <= 0:
+        if population <= 0:
+            errorBox.setText("The population size must be atleast 1!")
+            print("The population size must be atleast 1!")
+        elif alleles <= 0:
+            errorBox.setText("The number of distinct alleles must be atleast 1!")
+            print("The number of distinct alleles must be atleast 1!")
+        elif alleles > 2 * population:
+            errorBox.setText("Number of alleles can't be more than twice the population!")
+            print("Number of alleles can't be more than twice the population!")
+        elif generations <= 0:
+            errorBox.setText("The number of generations must be atleast 1!")
+            print("The number of generations must be atleast 1!")
+
+        wait_for_button(win, simBut)
+        errorBox.setText("")
+        population = int(button_and_boxes[1][0].getText())
+        alleles = int(button_and_boxes[1][1].getText())
+        generations = int(button_and_boxes[1][2].getText())
+
+    print("Population is", population)
+    print("Number of alleles is", alleles)
+    print("Number of generations is", generations)
+    errorBox.setText("Simulating...")
+    valuesList = [population, alleles, generations]
+    return valuesList
+
+def simCalc(paramList):
+    finalList = [paramList[1]]
+    allList = []
+    firstGenList = []
+    genList = [firstGenList]
+    coordList = [paramList[1]]
+    distAll = 0
+    genListCount = 0
+    for i in range(2 * paramList[0]):
+        firstGenList.append(distAll)
+        distAll = distAll + 1
+        if distAll == paramList[1]:
+            distAll = 0
+
+    print("Generation 0", genList[0])
+    for m in range(paramList[2] - 1):
+        # produces random allele list for each generation based on last generation
+        for l in range(2 * paramList[0]):
+            allList.append(random_from_list(genList[genListCount]))
+        genListCount = genListCount + 1
+        genList.append(allList)
+        print("Generation", m + 1, allList)
+        finalList.append(len(set(allList)))
+        coordList.append(len(set(allList)))
+        allList = []
+    print("Number of distinct alleles=", finalList)
+    graph(coordList)
+    return genList
+
+def Heterozygous(generationList, userInList):
+    hetero = 0
+    heteroGen = []
+    if userInList[0] % 2 == 0:
+        for b in range(len(generationList)):
+            for v in range(0, len(generationList[b]), 2):
+                if generationList[b][v] != generationList[b][v + 1]:
+                    hetero = hetero + 1
+            heteroGen.append(hetero)
+            hetero = 0
+
+    if userInList[0] % 2 != 0:
+        for b in range(len(generationList)):
+            for v in range(0, len(generationList[b]) - 1, 2):
+                if generationList[b][v] != generationList[b][v + 1]:
+                    hetero = hetero + 1
+            heteroGen.append(hetero)
+            hetero = 0
+    graph(heteroGen, "Number of heterozygous individuals")
+
+def frequentFun(generaList):
+    occurList = []
+    countOccurList = []
+    for x in range(len(generaList)):
+        occurence = Counter(generaList[x])
+        occurList.append(occurence.most_common(1)[0][0] + 1)
+        countOccurList.append(generaList[x].count(occurence.most_common(1)[0][0]))  
+    graph(countOccurList, "Frequency of most common allele")
+
+
+def main():
+
+    # This is what Part A would look like, if you had implemented it
+    # using the add_win and get_simul_params functions.
+    # Re-factor your Part A code, as a starting place for Part B.
+
+    try:
+        mywin = draw_main_window()
+
+        list = add_win(mywin)
+        values = get_simul_params(mywin, list)
+        listGen = simCalc(values)
+        Heterozygous(listGen, values)
+        frequentFun(listGen)
+
+        mywin.getMouse()
+        mywin.close()
+    except GraphicsError:
+        print("Hey, click on window to close it!")
+
+main()
+
+
+---------------------------------------------------------------------------------------------------
+
+# Define your function here.
+def integer_to_reverse_binary(userNum):
+    tempList = []
+    while userNum > 0:
+        tempList.append(str(userNum % 2))
+        userNum = userNum //2
+    tempStr = ' '.join(tempList)
+    anStr = reverse_string(tempStr)
+    return anStr
+    
+def reverse_string(createdString):
+    createdList = createdString.split(" ")
+    createdList.reverse()
+    tempStr = ''.join(createdList)
+    finalStr = tempStr.replace(" ","")
+    return finalStr
+        
+        
+if __name__ == '__main__':
+    # Type your code here. Your code must call the function.
+    userNum = int(input())
+    binary = integer_to_reverse_binary(userNum)
+    print(binary)
+    
+
+-----------------------------------------------------------------------------
+"""
+Program: CS115 Project 2, Part B
+Author:Django Demetri
+Description: TBD
+"""
+
+from drift_graphics import *
+
+def add_win(win):
+    '''Adds the simulate button and three entry boxes onto the graphical window
+
+        Args:
+            win (GraphWin): The Graphics Window.
+
+        Returns:
+            list: list containing the simulateButton object and and list of entryBox objects
+        '''
+
+    simButRec = Rectangle(Point(260, 465), Point(340, 495))
+    listLabel = ["Population Size", "Number of alleles", "Number of generations"]
+    simButCenter = Point(600 * .5, 600 * .8)
+    entryBox = draw_param_entries(win, listLabel)
+    simButton = draw_button(win, simButCenter, "Simulate!")
+    userList = [simButton, entryBox]
+    wait_for_button(win, simButRec)
+    return userList
+
+def get_simul_params(win, button_and_boxes):
+    '''Gets the value of simulation parameters from the graphical window.
+
+        Args:
+            win (GraphWin): The Graphics Window.
+            button_and_boxes (list): list containing the simulateButton and entryBoxes
+
+        Returns:
+            list: Value of simulation parameters such as population, number of alleles and number of generations in a list
+        '''
+    simBut = Rectangle(Point(260, 465), Point(340, 495))
+    population = int(button_and_boxes[1][0].getText())
+    alleles = int(button_and_boxes[1][1].getText())
+    generations = int(button_and_boxes[1][2].getText())
+    errorBox = draw_error_msg(win)
+    while population <= 0 or alleles <= 0 or alleles > 2 * population or generations <= 0:
+        if population <= 0:
+            errorBox.setText("The population size must be atleast 1!")
+            print("The population size must be atleast 1!")
+        elif alleles <= 0:
+            errorBox.setText("The number of distinct alleles must be atleast 1!")
+            print("The number of distinct alleles must be atleast 1!")
+        elif alleles > 2 * population:
+            errorBox.setText("Number of alleles can't be more than twice the population!")
+            print("Number of alleles can't be more than twice the population!")
+        elif generations <= 0:
+            errorBox.setText("The number of generations must be atleast 1!")
+            print("The number of generations must be atleast 1!")
+
+        wait_for_button(win, simBut)
+        errorBox.setText("")
+        population = int(button_and_boxes[1][0].getText())
+        alleles = int(button_and_boxes[1][1].getText())
+        generations = int(button_and_boxes[1][2].getText())
+
+    print("Population is", population)
+    print("Number of alleles is", alleles)
+    print("Number of generations is", generations)
+    errorBox.setText("Simulating...")
+    valuesList = [population, alleles, generations]
+    return valuesList
+
+def simCalc(paramList):
+    finalList = [paramList[1]]
+    allList = []
+    firstGenList = []
+    genList = [firstGenList]
+    coordList = [paramList[1]]
+    distAll = 0
+    genListCount = 0
+    for i in range(2 * paramList[0]):
+        firstGenList.append(distAll)
+        distAll = distAll + 1
+        if distAll == paramList[1]:
+            distAll = 0
+
+    for m in range(paramList[2] - 1):
+        # produces random allele list for each generation based on last generation
+        for l in range(2 * paramList[0]):
+            allList.append(random_from_list(genList[genListCount]))
+        genListCount = genListCount + 1
+        genList.append(allList)
+        print("Generation", m, allList)
+        finalList.append(len(set(allList)))
+        coordList.append(len(set(allList)))
+        allList = []
+    print("Number of distinct alleles=", finalList)
+    graph(coordList)
+
+
+
+
+
+def main():
+
+    # This is what Part A would look like, if you had implemented it
+    # using the add_win and get_simul_params functions.
+    # Re-factor your Part A code, as a starting place for Part B.
+
+    try:
+        mywin = draw_main_window()
+
+        list = add_win(mywin)
+        values = get_simul_params(mywin, list)
+        simCalc(values)
+
+
+        mywin.getMouse()
+        mywin.close()
+    except GraphicsError:
+        print("Hey, click on window to close it!")
+
+main()
+
+
+
+
+"""
+Program: CS 115 Lab 4b
+Author: Django Demetri
+Description: This program draw a few rectangles and fills them.
+"""
+from graphics import *
+
+
+def main():
+    window = GraphWin('Lab 4b', 400, 600)
+
+    palette_top_left_x = 10
+    palette_top_left_y = 20
+    width = 60
+    height = 60
+    yellow_top_left = Point(palette_top_left_x, palette_top_left_y)
+    yellow_bottom_right = Point(palette_top_left_x + width, palette_top_left_y + height)
+    yellow_rectangle = Rectangle(yellow_top_left, yellow_bottom_right)
+    yellow_rectangle.setFill('yellow')
+    yellow_rectangle.draw(window)
+
+    #pink rectangle
+    pinkTopLeftx = 70
+    pinkTopLefty = 20
+    pinkWidth = 60
+    pinkHeight = 60
+    pinkTopLeft = Point(pinkTopLeftx,pinkTopLefty)
+    pinkBottomRight = Point(pinkTopLeftx + pinkWidth, pinkTopLefty + pinkHeight)
+    pinkRectangle = Rectangle(pinkTopLeft,pinkBottomRight)
+    pinkRectangle.setFill('pink')
+    pinkRectangle.draw(window)
+
+    #blue rectangle
+    blueTopLeftx = 130
+    blueTopLefty = 20
+    blueWidth = 60
+    blueHeight = 60
+    blueTopLeft = Point(blueTopLeftx,blueTopLefty)
+    blueBottomRight = Point(blueTopLeftx + blueWidth, blueTopLefty + blueHeight)
+    blueRectangle = Rectangle(blueBottomRight,blueTopLeft)
+    blueRectangle.setFill('blue')
+    blueRectangle.draw(window)
+
+
+    for i in range(5):
+        c_point = window.getMouse()
+        x_c_point = int(c_point.getX())
+        y_c_point = int(c_point.getY())
+        if (yellow_top_left.getX() <= x_c_point <= yellow_bottom_right.getX() and
+           yellow_top_left.getY() <= y_c_point <= yellow_bottom_right.getY()):
+            print('The click with x =', x_c_point, 'and y =',
+                  y_c_point, 'is in the yellow square.')
+        elif (pinkTopLeft.getX() <= x_c_point <= pinkBottomRight.getX()) and (pinkTopLeft.getY() <= y_c_point <= pinkBottomRight.getY()):
+            print("The click with x =" , x_c_point , "and y =" , y_c_point , "is in the pink square.")
+        elif (blueTopLeft.getX() <= x_c_point <= blueBottomRight.getX()) and (blueTopLeft.getY() <= y_c_point <= blueBottomRight.getY()):
+            print("The click with x = " , x_c_point , "and y = " , y_c_point , "is in the blue square")
+        else:
+            print("The click with x =" , x_c_point , "and y = " , y_c_point , "is not in any of the squares")
+
+
+    window.getMouse()
+    window.close()
+
+main()
+
+-----------------------------------------------------------------------------------------------------------------------------------
+"""
+Program: CS 115 Lab 4c_1
+Author: Django Demetri
+Description: This program draws a few rectangles and fills them.
+"""
+from graphics import *
+from random import seed, randint
+
+
+def random_color():
+    '''Produces a random color.
+
+    Returns:
+        str: a string representing a color.
+    '''
+    # Note: Don't worry about the details of this function right now.
+    colors = ['blue', 'blue2', 'blue3', 'green', 'green2', 'green3',
+              'orange', 'orange2', 'orange3', 'red', 'red2', 'red3',
+              'purple', 'purple2', 'purple3', 'yellow', 'yellow2', 'yellow3',
+              'gray', 'gray2', 'gray3', 'pink', 'pink1', 'pink2', 'pink3']
+    return colors[randint(0, len(colors)-1)]
+
+
+def main():
+    seed()  # Initialize random number generator
+
+    top_left_x = 100
+    top_left_y = 100
+    width = 60
+    height = 60
+    # num_rows = int(input('Number of rows: '))  # commented out for now
+    num_columns = int(input('Number of columns: '))
+
+    window = GraphWin('Lab 4C', 800, 800)
+    for i in range(num_columns):
+        top_left_point = Point(top_left_x + width*i, top_left_y)
+        bottom_right_point = Point(top_left_x + width*(i+1), top_left_y + height)
+        enclosing_rectangle = Rectangle(top_left_point, bottom_right_point)
+        enclosing_rectangle.setFill(random_color())
+        enclosing_rectangle.draw(window)
+
+    window.getMouse()
+    window.close()
+
+main()
+-------------------------------------------------------------------------------------------------------------------------------
+"""
+Program: CS 115 Lab 4c_2
+Author: Django Demetri
+Description: This program draws a few rectangles and fills them.
+"""
+from graphics import *
+from random import seed, randint
+
+
+def random_color():
+    '''Produces a random color.
+
+    Returns:
+        str: a string representing a color.
+    '''
+    # Note: Don't worry about the details of this function right now.
+    colors = ['blue', 'blue2', 'blue3', 'green', 'green2', 'green3',
+              'orange', 'orange2', 'orange3', 'red', 'red2', 'red3',
+              'purple', 'purple2', 'purple3', 'yellow', 'yellow2', 'yellow3',
+              'gray', 'gray2', 'gray3', 'pink', 'pink1', 'pink2', 'pink3']
+    return colors[randint(0, len(colors)-1)]
+
+
+def main():
+    seed()  # Initialize random number generator
+
+    top_left_x = 100
+    top_left_y = 100
+    width = 60
+    height = 60
+    num_rows = int(input('Number of rows: '))  # commented out for now
+    num_columns = int(input('Number of columns: '))
+
+    window = GraphWin('Lab 4C', 800, 800)
+    for i in range(num_columns):
+        top_left_y = top_left_y + height
+        for k in range(num_rows):
+            top_left_point = Point(top_left_x + width*k, top_left_y)
+            bottom_right_point = Point(top_left_x + width*(k+1), top_left_y + height)
+            enclosing_rectangle = Rectangle(top_left_point, bottom_right_point)
+            enclosing_rectangle.setFill(random_color())
+            enclosing_rectangle.draw(window)
+
+    window.getMouse()
+    window.close()
+
+main()
+---------------------------------------------------------------------------------------------------------------------
+"""
+Program: CS 115 Lab 4c_1
+Author: Django Demetri
+Description: This program draws a few rectangles and fills them.
+"""
+from graphics import *
+from random import seed, randint
+
+
+def random_color():
+    '''Produces a random color.
+
+    Returns:
+        str: a string representing a color.
+    '''
+    # Note: Don't worry about the details of this function right now.
+    colors = ['blue', 'blue2', 'blue3', 'green', 'green2', 'green3',
+              'orange', 'orange2', 'orange3', 'red', 'red2', 'red3',
+              'purple', 'purple2', 'purple3', 'yellow', 'yellow2', 'yellow3',
+              'gray', 'gray2', 'gray3', 'pink', 'pink1', 'pink2', 'pink3']
+    return colors[randint(0, len(colors)-1)]
+
+
+def main():
+    seed()  # Initialize random number generator
+
+    top_left_x = 100
+    top_left_y = 100
+    width = 60
+    height = 60
+    num_rows = int(input('Number of rows: '))  # commented out for now
+    num_columns = int(input('Number of columns: '))
+
+    window = GraphWin('Lab 4C', 800, 800)
+    for i in range(num_columns):
+        for k in range(num_rows):
+            top_left_point = Point(top_left_x + width*k, top_left_y)
+            bottom_right_point = Point(top_left_x + width*(k+1), top_left_y + height)
+            enclosing_rectangle = Rectangle(top_left_point, bottom_right_point)
+            enclosing_rectangle.setFill(random_color())
+            enclosing_rectangle.draw(window)
+        top_left_y = top_left_y + height
+
+    top_left_y = 100
+    for i in range(10):
+        c_point = window.getMouse()
+        x_c_point = int(c_point.getX())
+        y_c_point = int(c_point.getY())
+        calibratePositionX = x_c_point - top_left_x
+        calibratePositionY = y_c_point - top_left_y
+        positionX = (calibratePositionX // 60) + 1
+        positionY = (calibratePositionY // 60) + 1
+        if x_c_point <= (100 + 60 * num_columns) and x_c_point >= 100 and y_c_point >= 100 and y_c_point <= (100 + 60 * num_rows):
+            print("The click at (", x_c_point, ", ", y_c_point, ") is in row ", positionY, ", column ", positionX, ".", sep = "")
+        else:
+            print("The click at (", x_c_point, ", ", y_c_point, ") is outside of the grid.", sep = "")
+    window.getMouse()
+    window.close()
+
+main()
+
+
+------------------------------------------------------------------------
+# FIXME (1): Prompt for four weights. Add all weights to a list. Output list.
+weight_list = []
+sum = 0.0
+maxWeight = float('-inf')
+for i in range(1,5):
+    print("Enter weight " , i , ":", sep = "")
+    tempWeight = float(input())
+    weight_list.append(tempWeight)
+    sum = tempWeight + sum
+    if tempWeight > maxWeight:
+        maxWeight = tempWeight
+print("Weights:" , weight_list)
+    
+
+
+# FIXME (2): Output average of weights.
+print("")
+print("Average weight:",'{:.2f}'.format(sum/4))
+
+# FIXME (3): Output max weight from list.
+print("Max weight:", maxWeight)
+# FIXME (4): Prompt the user for a list index and output that weight in pounds and kilograms.
+print("")
+whichWeight = int(input("Enter a list location (1 - 4):"))
+whichWeightValue = weight_list[whichWeight] - 1
+weightGrams = weight_list[whichWeight]/2.2
+print("Weight in pounds" , '{:.2f}'.format(whichWeightValue))
+print("Weight in kilograms" , '{:.2f}'.format(weightGrams))
+# FIXME (5): Sort the list and output it.
+weight_list.sort()
+print(weight_list)
+
+-------------------------------------------------
+"""
+Program: CS 115 Lab 7a
+Author: Django Demetri
+Description: This program will create a magic square
+   whose size is specified by the user.
+"""
+
+
+def create_list(rows, cols):
+    '''Creates a two-dimensional array.
+
+    Args:
+        rows (int): The numbers of rows.
+        cols (int): The number of columns.
+
+    Returns:
+        list: A 2D array with all values set to zero.
+    '''
+    two_d = []  # create an empty list
+    for i in range(rows):
+        two_d.append([])  # append an empty list to two_d
+        for j in range(cols):
+            two_d[i].append(0)   # two_d[i] is the empty list that we just created.
+                                 # here, we are adding elements to it.
+    return two_d
+
+
+def rjust_by_n(number, n):
+    '''Formats a string containing 'number', right-justified.
+
+    Args:
+        number (int): A value.
+        n (int): The width of the string into which 'number' is inserted.
+
+    Returns:
+        str: A string of length n.
+    '''
+    return str(number).rjust(n)
+
+
+def print_list(numbers):
+    '''Prints a 1D list of numbers, where each number is right-justified.
+
+    Args:
+        numbers (list): A list of numbers.
+    '''
+    for i in range(len(numbers)):
+        print( rjust_by_n(numbers[i], 4), end='')
+    print()
+
+def print_2d_list(two_d_list):
+    '''Prints a 2-dimensional list in a pretty format.
+
+    Args:
+        two_d_list (list): A 2D list of numbers.
+    '''
+    for i in range(len(two_d_list)):
+        print_list(two_d_list[i])
+
+
+def build_magic_square(square):
+    '''Modifies 'square' to fill it with a magic square. Modifies
+    the original list (has no return value).
+
+    Args:
+        square (list): a 2D array whose number of rows and columns
+                are equal and len(square) is an odd number.
+    '''
+    magic_value = 1
+    square_size = len(square)
+    row = 0
+    col = square_size // 2
+    square_size_squared = square_size * square_size
+    while magic_value <= square_size_squared:
+        square[row][col] = magic_value
+        row -= 1
+        col += 1
+        if row < 0 and col > square_size - 1:
+            row += 2
+            col -= 1
+        elif row < 0:
+            row = square_size - 1
+        elif col > square_size - 1:
+            col = 0
+        elif square[row][col] != 0:
+            row += 2
+            col -= 1
+
+        magic_value += 1
+
+
+def sum_row_values(matrix, row_number):
+    '''Sums the values of all entries in the row given by 'row_number'.
+
+    Args:
+        matrix (list): A square, 2D array.
+        row_number (int): A value in the range 0 and len(matrix)-1.
+
+    Returns
+        int: The sum of all values of the row indicated by 'row_number'.
+    '''
+    sum = 0
+    for i in range(len(matrix[0])):
+        sum = sum + matrix[row_number][i]
+
+    return sum
+
+def sum_col_values(matrix, col_number):
+    '''Sums the values of all entries in the column given by 'col_number'.
+
+    Args:
+        matrix (list): A 2D, square array.
+        col_number (int): A value in the range 0 and len(matrix)-1.
+
+    Returns:
+        int: The sum of all values in the column indicated by 'col_number'.
+    '''
+    sum = 0
+    for i in range(len(matrix[0])):
+        sum = sum + matrix[i][col_number]
+    return sum
+
+def sum_top_left_bottom_right_diagonal(matrix):
+    '''Calculates the sum of the values at matrix[0][0],
+    matrix[1][1], etc.
+
+    Args:
+        matrix (list): A square, 2D array.
+
+    Returns:
+        int: The sum of values of the top-left to bottom-right diagonal.
+    '''
+    sum = 0
+    for i in range(len(matrix[0])):
+        sum = sum + matrix[i][i]
+
+    return sum
+
+def sum_top_right_bottom_left_diagonal(matrix):
+    '''Calculates the sum of the values at matrix[0][len(matrix)-1],
+    matrix[1][len(matrix)-2], etc.
+
+    Args:
+        matrix (list): A square, 2D array.
+
+    Returns:
+        int: The sum of values of the top-right to bottom-left diagonal
+    '''
+    sum = 0
+    for i in range(len(matrix[0])):
+        index = len(matrix) - 1
+        sum = sum + matrix[i][index - i]
+
+    return sum
+
+def is_magic_square(matrix):
+    '''Returns True if the two dimensional array 'matrix' is a magic square;
+    otherwise, returns False.
+
+    Args:
+        matrix (list): A square, 2D array.
+
+    Returns:
+        bool: True or False.
+    '''
+
+
+    # Calculate the sum of the values of the top-left to
+    #   bottom-right diagonal. Call it tlbr_sum.
+    tlbr_sum = sum_top_left_bottom_right_diagonal(matrix)
+
+    # Calculate the sum of the values of the top-right to
+    #   bottom-left diagonal. Call it trbl_sum.
+    trbl_sum = sum_top_right_bottom_left_diagonal(matrix)
+
+    # If tlbr_sum is not equal to trbl_sum, return False.
+    # Otherwise, proceed.
+    if tlbr_sum != trbl_sum:
+        return False
+
+    # Calculate the sum of *each* row of the matrix and compare it
+    #  with tlbr_sum. If the two sums are not equal, return False.
+    #  Otherwise, proceed.
+    for k in range(len(matrix[0])):
+        sumRowFunc = 0
+        sumRowFunc = sum_row_values(matrix, k)
+    if tlbr_sum != sumRowFunc:
+        return False
+
+    # Calculate the sum of *each* column of the matrix and compare it
+    #  with tlbr_sum. If the two sums are not equal, return False.
+    #  Otherwise, proceed.
+    for k in range(len(matrix[0])):
+        sumColFunc = 0
+        sumColFunc = sum_col_values(matrix, k)
+    if tlbr_sum != sumColFunc:
+        return False
+
+    # return True.
+    return True
+
+
+def read_magic_square(filename):
+    '''Reads values from a file into a 2D list.
+
+    Args:
+        filename (str): The name of the file.
+
+    Returns:
+        list: A 2D list of integer values.
+    '''
+    infile = open(filename, 'rt')
+    square = []  # start with an empty list
+
+    for line in infile:  # read text from file
+        row = []
+        numbers = line.split()
+
+        # Loop through the list of numbers.
+        # Append each number to the row.
+        for num in numbers:
+            row.append(int(num))
+
+        if len(row) > 0:  # Don't count blank lines
+            square.append(row)  # Append the row to the 2D list
+
+    return square
+
+def main():
+    #square_size = int(input("Enter an odd integer to build a magic square:"))
+    #matrixOne = create_list(square_size,square_size)
+    #build_magic_square(matrixOne)
+    #print("")
+    #print_2d_list(matrixOne)
+    #sum_of_row_0 = sum_row_values(matrixOne, 0)
+    # print()
+    # for k in range(square_size):
+       # sumRow = 0
+       # sumRow = sum_row_values(matrixOne, k)
+       # print('The sum of values in row', k ,'is', sumRow)
+   # for k in range(square_size):
+      #   sumCol = 0
+      #  sumCol = sum_col_values(matrixOne, k)
+      #  print('The sum of values in column', k ,'is', sumCol)
+
+   # print("sum of top left", sum_top_left_bottom_right_diagonal(matrixOne))
+   # print("sum of top right", sum_top_right_bottom_left_diagonal(matrixOne))
+   # if is_magic_square(matrixOne):
+   #     print("The above square is a magic square.")
+   # else:
+   #     print("The above square is NOT a magic square.")
+
+    fileName = input("Enter the name of a file containing a matrix of numbers:")
+    userRequestedSquare = read_magic_square(fileName)
+    print("")
+    print_2d_list(userRequestedSquare)
+
+    print("")
+    if is_magic_square(userRequestedSquare):
+        print("The above square is a magic square.")
+    else:
+        print("The above square is NOT a magic square.")
+
+main()
